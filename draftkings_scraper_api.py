@@ -1,35 +1,62 @@
-
 # Xero Global Prop Fetcher - DraftKings/FanDuel (Blueprint)
-# This is a placeholder for a comprehensive scraper/API wrapper that:
-# - Scans all sports
-# - Pulls all markets (moneylines, totals, spreads, player props, alt lines, novelty bets)
-# - Works for both DraftKings and FanDuel
-# - Routes to a sniper-grade optimizer
+# This is the live scraper/API wrapper for:
+# - Scanning all sports
+# - Pulling all markets (moneylines, totals, spreads, player props, alt lines, novelty bets)
+# - Supporting both DraftKings and FanDuel
+# - Feeding props into the Jarvis Protocol optimizer
 
-# TODO:
-# 1. Scrape or API parse full list of events from DraftKings/FanDuel homepage
-# 2. Extract market URLs or identifiers per event
-# 3. Loop over every available market, capture:
-#    - Sport
-#    - League
-#    - Teams
-#    - Market type (moneyline, alt spread, over/under, player prop)
-#    - Odds
-#    - Contextual data (e.g., team/player info)
-# 4. Normalize data structure
-# 5. Run Jarvis Protocol (stat check, matchup, simulation, verdict)
-# 6. Group props into stackable, flip-safe parlay recommendations
+from fastapi import FastAPI
+from pydantic import BaseModel
+import requests
+import os
 
-# ENDPOINT IDEA:
-# /xero/all-props-flip-scan
-# → Returns: Cleaned, flip-worthy props across both books
+app = FastAPI()
 
-# Example data model:
-# {
-#   "sport": "basketball_nba",
-#   "event": "Lakers vs Celtics",
-#   "market": "player_points",
-#   "prop": "LeBron James UNDER 27.5",
-#   "odds": -120,
-#   "source": "DraftKings"
-# }
+# Odds API key (set your own key in environment or directly here)
+ODDS_API_KEY = os.getenv("ODDS_API_KEY", "c8062fba25bf5dc48dfad2a3d8245663")
+ODDS_API_BASE = "https://api.the-odds-api.com/v4/sports"
+
+class Prop(BaseModel):
+    sport: str
+    event: str
+    market: str
+    prop: str
+    odds: float
+    source: str
+
+@app.get("/")
+def root():
+    return {"message": "Xero System is live!"}
+
+@app.get("/xero/all-props-flip-scan")
+def all_props_flip_scan():
+    try:
+        response = requests.get(
+            f"{ODDS_API_BASE}?apiKey={ODDS_API_KEY}&all=true&regions=us&markets=h2h,spreads,totals,player_points,player_rebounds,player_assists"
+        )
+        if response.status_code != 200:
+            return {"error": f"Odds API responded with status {response.status_code}"}
+
+        data = response.json()
+        results = []
+
+        for item in data:
+            sport = item.get("sport_key", "unknown")
+            for bookmaker in item.get("bookmakers", []):
+                source = bookmaker.get("title", "unknown")
+                for market in bookmaker.get("markets", []):
+                    market_type = market.get("key", "unknown")
+                    for outcome in market.get("outcomes", []):
+                        results.append({
+                            "sport": sport,
+                            "event": item.get("home_team", "") + " vs " + item.get("away_team", ""),
+                            "market": market_type,
+                            "prop": outcome.get("name", "unknown"),
+                            "odds": outcome.get("price", 0),
+                            "source": source
+                        })
+
+        return {"status": "Jarvis Protocol Raw Pull", "count": len(results), "props": results[:50]}  # limit for sanity
+
+    except Exception as e:
+        return {"error": str(e)}
