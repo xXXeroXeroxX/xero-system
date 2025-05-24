@@ -31,7 +31,7 @@ def root():
 @app.get("/xero/all-props-flip-scan")
 def all_props_flip_scan():
     try:
-        url = f"{ODDS_API_BASE}/?apiKey={ODDS_API_KEY}&all=true&regions=us&markets=h2h,spreads,totals,player_points,player_rebounds,player_assists"
+        url = f"{ODDS_API_BASE}/?apiKey={ODDS_API_KEY}&all=true&regions=us&markets=all"
         response = requests.get(url)
 
         print("STATUS CODE:", response.status_code)
@@ -45,6 +45,10 @@ def all_props_flip_scan():
 
         for item in data:
             sport = item.get("key", "unknown")
+            home_team = item.get("home_team", "")
+            away_team = item.get("away_team", "")
+            event = f"{away_team} vs {home_team}" if away_team and home_team else item.get("title", "Unknown Matchup")
+
             for bookmaker in item.get("bookmakers", []):
                 source = bookmaker.get("title", "unknown")
                 for market in bookmaker.get("markets", []):
@@ -52,7 +56,7 @@ def all_props_flip_scan():
                     for outcome in market.get("outcomes", []):
                         results.append({
                             "sport": sport,
-                            "event": item.get("home_team", "") + " vs " + item.get("away_team", ""),
+                            "event": event,
                             "market": market_type,
                             "prop": outcome.get("name", "unknown"),
                             "odds": outcome.get("price", 0),
@@ -63,3 +67,4 @@ def all_props_flip_scan():
 
     except Exception as e:
         return {"error": str(e)}
+
