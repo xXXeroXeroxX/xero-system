@@ -31,9 +31,12 @@ def root():
 @app.get("/xero/all-props-flip-scan")
 def all_props_flip_scan():
     try:
-        response = requests.get(
-            f"{ODDS_API_BASE}?apiKey={ODDS_API_KEY}&all=true&regions=us&markets=h2h,spreads,totals,player_points,player_rebounds,player_assists"
-        )
+        url = f"{ODDS_API_BASE}/?apiKey={ODDS_API_KEY}&all=true&regions=us&markets=h2h,spreads,totals,player_points,player_rebounds,player_assists"
+        response = requests.get(url)
+
+        print("STATUS CODE:", response.status_code)
+        print("RESPONSE TEXT:", response.text)
+
         if response.status_code != 200:
             return {"error": f"Odds API responded with status {response.status_code}"}
 
@@ -41,7 +44,7 @@ def all_props_flip_scan():
         results = []
 
         for item in data:
-            sport = item.get("sport_key", "unknown")
+            sport = item.get("key", "unknown")
             for bookmaker in item.get("bookmakers", []):
                 source = bookmaker.get("title", "unknown")
                 for market in bookmaker.get("markets", []):
@@ -56,7 +59,7 @@ def all_props_flip_scan():
                             "source": source
                         })
 
-        return {"status": "Jarvis Protocol Raw Pull", "count": len(results), "props": results[:50]}  # limit for sanity
+        return {"status": "Jarvis Protocol Raw Pull", "count": len(results), "props": results[:50]}
 
     except Exception as e:
         return {"error": str(e)}
